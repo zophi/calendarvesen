@@ -450,7 +450,9 @@ function setStatus(msg, type) {
 }
 
 async function extractEvents() {
-  const key = (document.getElementById('apiKey').value || localStorage.getItem('anthropic_key') || '').trim();
+  const storedKey = localStorage.getItem('anthropic_key') || '';
+  if (storedKey) document.getElementById('apiKey').value = storedKey;
+  const key = (document.getElementById('apiKey').value || storedKey).trim();
   if (!key) { setStatus('Add your API key first (tap ⚙️)', 'error'); showSettings(); return; }
   if (!imageData) { setStatus('Pick a screenshot first', 'error'); return; }
 
@@ -509,6 +511,8 @@ No markdown, no explanation, just the JSON array.` }
       setStatus(`Found ${allEvents.length} event${allEvents.length !== 1 ? 's' : ''}`, 'success');
     }
   } catch (err) {
+    document.getElementById('debugBox').textContent = 'Fetch error: ' + err.name + ': ' + err.message;
+    document.getElementById('debugArea').style.display = 'block';
     setStatus(err.message, 'error');
   } finally {
     btn.disabled = false;
