@@ -343,6 +343,7 @@
   <p style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">
     Stored only on this device. Get a key at <a href="https://console.anthropic.com" style="color:var(--accent)">console.anthropic.com</a>
   </p>
+  <button onclick="clearHistory()" style="margin-top:10px;font-size:12px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;text-underline-offset:2px;padding:0;">Clear import history</button>
 </div>
 
 <!-- Upload -->
@@ -392,6 +393,16 @@ let imageData = null;
 let allEvents = [];
 let showingSettings = false;
 let showingDebug = false;
+
+function fingerprint(ev) {
+  return [ev.date||'', ev.startTime||'', (ev.title||'').toLowerCase().trim()].join('|');
+}
+function loadSeen() {
+  try { return new Set(JSON.parse(localStorage.getItem('cal_seen') || '[]')); } catch { return new Set(); }
+}
+function saveSeen(set) {
+  localStorage.setItem('cal_seen', JSON.stringify([...set]));
+}
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -537,10 +548,15 @@ function formatDate(d) {
 function renderEvents() {
   const list = document.getElementById('eventsList');
   list.innerHTML = '';
-  document.getElementById('eventsSection').style.display = allEvents.length ? 'block' : 'none';
-  document.getElementById('eventsCount').textContent = allEvents.length;
+  const seen = loadSeen();
+  const newEvents = allEvents.filter(ev => !seen.has(fingerprint(ev)));
+  const dupEvents = allEvents.filter(ev => seen.has(fingerprint(ev)));
+  const total = allEvents.length;
+  document.getElementById('eventsSection').style.display = total ? 'block' : 'none';
+  document.getElementById('eventsCount').textContent = newEvents.length + ' new' + (dupEvents.length ? ', ' + dupEvents.length + ' skipped' : '');
 
   allEvents.forEach((ev, i) => {
+    const isDup = seen.has(fingerprint(ev));
     const meta = [
       ev.date ? formatDate(ev.date) : null,
       ev.startTime ? (ev.startTime + (ev.endTime ? '–' + ev.endTime : '')) : null,
@@ -549,13 +565,14 @@ function renderEvents() {
 
     const div = document.createElement('div');
     div.className = 'event-item';
+    div.style.opacity = isDup ? '0.4' : '1';
     div.innerHTML = `
-      <div class="event-dot"></div>
+      <div class="event-dot" style="background:${isDup ? 'var(--muted)' : 'var(--green)'}"></div>
       <div class="event-body">
-        <div class="event-title">${esc(ev.title || 'Untitled')}</div>
-        <div class="event-meta">${esc(meta)}${ev.description ? '<br>'+esc(ev.description) : ''}</div>
+        <div class="event-title" style="${isDup ? 'text-decoration:line-through' : ''}">${esc(ev.title || 'Untitled')}</div>
+        <div class="event-meta">${esc(meta)}${isDup ? ' · <span style="color:var(--accent)">already imported</span>' : ''}${ev.description && !isDup ? '<br>'+esc(ev.description) : ''}</div>
       </div>
-      <button class="event-delete" onclick="removeEvent(${i})">×</button>`;
+      ${isDup ? '<span style="font-size:11px;color:var(--muted);padding-top:2px">skip</span>' : '<button class="event-delete" onclick="removeEvent('+i+')">×</button>'}`;
     list.appendChild(div);
   });
 }
@@ -579,9 +596,15 @@ function toICSDate(date, time) {
 }
 
 function downloadICS() {
-  if (!allEvents.length) return;
+  const seen = loadSeen();
+  const toExport = allEvents.filter(ev => !seen.has(fingerprint(ev)));
+  if (!toExport.length) { setStatus('No new events to download', 'info'); return; }
   const lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//CalImport//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH'];
-  allEvents.forEach(ev => {
+  toExport.forEach(ev => {
+    seen.add(fingerprint(ev));
+  });
+  saveSeen(seen);
+  toExport.forEach(ev => {
     const uid = Math.random().toString(36).slice(2) + '@calimport';
     const isAllDay = !ev.startTime;
     const dtstart = toICSDate(ev.date, ev.startTime || null);
@@ -607,6 +630,12 @@ function toggleDebug() {
   showingDebug = !showingDebug;
   document.getElementById('debugBox').style.display = showingDebug ? 'block' : 'none';
   document.querySelector('.debug-toggle').textContent = showingDebug ? 'Hide raw response' : 'Show raw API response';
+}
+
+function clearHistory() {
+  localStorage.removeItem('cal_seen');
+  setStatus('Import history cleared — all events will be treated as new', 'info');
+  if (allEvents.length) renderEvents();
 }
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
