@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cal Import">
+<title>Cal Import</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c26;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f5;
+    --muted: #7b7b90;
+    --accent: #6b8aff;
+    --accent-dim: rgba(107,138,255,0.15);
+    --accent-dim2: rgba(107,138,255,0.25);
+    --green: #3ecf8e;
+    --green-dim: rgba(62,207,142,0.15);
+    --red: #ff6b6b;
+    --red-dim: rgba(255,107,107,0.12);
+    --radius: 16px;
+    --radius-sm: 10px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    padding-top: calc(var(--safe-top) + 16px);
+    padding-bottom: calc(var(--safe-bottom) + 24px);
+    padding-left: 16px;
+    padding-right: 16px;
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .header-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-mark {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+  .settings-btn {
+    width: 36px; height: 36px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.15s;
+  }
+  .settings-btn:active { background: var(--surface2); }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  /* API key section */
+  .api-section { display: none; }
+  .api-section.visible { display: block; }
+  .api-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .api-row { display: flex; gap: 8px; }
+  .api-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 11px 14px;
+    font-size: 14px;
+    color: var(--text);
+    font-family: "SF Mono", monospace;
+    letter-spacing: 0.5px;
+    outline: none;
+    -webkit-appearance: none;
+  }
+  .api-input:focus { border-color: var(--accent); }
+  .api-input::placeholder { color: var(--muted); font-family: -apple-system, sans-serif; letter-spacing: 0; }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 1.5px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 36px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .upload-zone.has-image {
+    padding: 0;
+    border-style: solid;
+    border-color: var(--border);
+  }
+  .upload-zone:active { opacity: 0.7; }
+  .upload-zone input[type=file] { display: none; }
+  .upload-icon { font-size: 36px; margin-bottom: 10px; }
+  .upload-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .upload-sub { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  .preview-img {
+    width: 100%;
+    border-radius: calc(var(--radius) - 1px);
+    display: block;
+    max-height: 280px;
+    object-fit: cover;
+  }
+  .preview-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%);
+    border-radius: calc(var(--radius) - 1px);
+    display: flex;
+    align-items: flex-end;
+    padding: 12px;
+    gap: 8px;
+  }
+  .preview-filename {
+    flex: 1;
+    font-size: 12px;
+    color: rgba(255,255,255,0.8);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .preview-change {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    background: rgba(107,138,255,0.2);
+    padding: 4px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+
+  /* Extract button */
+  .extract-btn {
+    width: 100%;
+    padding: 15px;
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius);
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: opacity 0.15s, transform 0.1s;
+    margin-bottom: 12px;
+    letter-spacing: -0.2px;
+  }
+  .extract-btn:active { opacity: 0.8; transform: scale(0.98); }
+  .extract-btn:disabled { opacity: 0.4; }
+
+  /* Status */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+  .status-bar.info { background: var(--accent-dim); color: var(--accent); }
+  .status-bar.success { background: var(--green-dim); color: var(--green); }
+  .status-bar.error { background: var(--red-dim); color: var(--red); }
+
+  /* Spinner */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.65s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Events list */
+  .events-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .events-title { font-size: 15px; font-weight: 600; }
+  .events-badge {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  .event-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    position: relative;
+  }
+  .event-dot {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+  .event-body { flex: 1; min-width: 0; }
+  .event-title { font-size: 14px; font-weight: 600; line-height: 1.35; margin-bottom: 3px; }
+  .event-meta { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .event-delete {
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 20px; line-height: 1;
+    padding: 0 0 0 4px; flex-shrink: 0;
+    display: flex; align-items: flex-start;
+    transition: color 0.1s;
+  }
+  .event-delete:active { color: var(--red); }
+
+  /* Download button */
+  .download-btn {
+    width: 100%;
+    padding: 15px;
+    background: var(--green-dim);
+    border: 1px solid rgba(62,207,142,0.3);
+    border-radius: var(--radius);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--green);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: opacity 0.15s, transform 0.1s;
+    margin-top: 4px;
+    letter-spacing: -0.2px;
+  }
+  .download-btn:active { opacity: 0.75; transform: scale(0.98); }
+
+  /* Debug */
+  .debug-toggle {
+    font-size: 12px;
+    color: var(--muted);
+    background: none; border: none;
+    cursor: pointer; padding: 4px 0;
+    display: block;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .debug-box {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    font-size: 11px;
+    font-family: "SF Mono", monospace;
+    color: var(--muted);
+    word-break: break-all;
+    white-space: pre-wrap;
+    max-height: 180px;
+    overflow-y: auto;
+    margin-top: 6px;
+  }
+
+  /* Hint */
+  .hint {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.6;
+    margin-top: 16px;
+    padding: 0 8px;
+  }
+  .hint a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">
+    <div class="logo-mark">📅</div>
+    <div class="logo-text">Cal Import</div>
+  </div>
+  <div class="settings-btn" onclick="toggleSettings()" title="Settings">⚙️</div>
+</div>
+
+<!-- API Key -->
+<div class="card api-section" id="apiSection">
+  <div class="api-label">Anthropic API Key</div>
+  <div class="api-row">
+    <input class="api-input" type="password" id="apiKey" placeholder="sk-ant-…" oninput="saveKey(this.value)" autocomplete="off" autocorrect="off" spellcheck="false">
+  </div>
+  <p style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">
+    Stored only on this device. Get a key at <a href="https://console.anthropic.com" style="color:var(--accent)">console.anthropic.com</a>
+  </p>
+</div>
+
+<!-- Upload -->
+<div class="upload-zone card" id="uploadZone" onclick="document.getElementById('fileInput').click()" style="padding:36px 24px;">
+  <input type="file" id="fileInput" accept="image/*" onchange="handleFile(this.files[0])">
+  <div class="upload-icon">🗓️</div>
+  <div class="upload-title">Tap to add screenshot</div>
+  <div class="upload-sub">Choose from Photos or take a new one.<br>Works with any schedule table.</div>
+</div>
+
+<!-- Status -->
+<div id="statusBar" style="display:none;" class="status-bar info">
+  <span id="statusIcon"></span>
+  <span id="statusText"></span>
+</div>
+
+<!-- Extract -->
+<button class="extract-btn" id="extractBtn" onclick="extractEvents()" disabled>
+  Extract events
+</button>
+
+<!-- Events -->
+<div id="eventsSection" style="display:none;">
+  <div class="events-header">
+    <span class="events-title">Events</span>
+    <span class="events-badge" id="eventsCount">0</span>
+  </div>
+  <div id="eventsList"></div>
+  <button class="download-btn" onclick="downloadICS()">
+    <span>⬇</span> Save as .ics for Apple Calendar
+  </button>
+</div>
+
+<!-- Debug -->
+<div id="debugArea" style="display:none; margin-top:8px;">
+  <button class="debug-toggle" onclick="toggleDebug()">Show raw API response</button>
+  <div class="debug-box" id="debugBox" style="display:none;"></div>
+</div>
+
+<!-- Hint -->
+<div class="hint" id="hint">
+  Open in Safari and tap <strong style="color:var(--text)">Share → Add to Home Screen</strong><br>to use like a native app.
+</div>
+
+<script>
+let imageData = null;
+let allEvents = [];
+let showingSettings = false;
+let showingDebug = false;
+
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+// Load saved key
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('anthropic_key') || '';
+  if (saved) document.getElementById('apiKey').value = saved;
+  else { showSettings(); } // Show settings if no key
+});
+
+function saveKey(v) { localStorage.setItem('anthropic_key', v.trim()); }
+
+function toggleSettings() {
+  showingSettings = !showingSettings;
+  document.getElementById('apiSection').classList.toggle('visible', showingSettings);
+}
+function showSettings() {
+  showingSettings = true;
+  document.getElementById('apiSection').classList.add('visible');
+}
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataURL = e.target.result;
+    imageData = { base64: dataURL.split(',')[1], mediaType: file.type || 'image/jpeg', name: file.name };
+
+    const zone = document.getElementById('uploadZone');
+    zone.style.padding = '0';
+    zone.innerHTML = `
+      <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this.files[0])">
+      <img src="${dataURL}" class="preview-img" alt="preview">
+      <div class="preview-overlay">
+        <span class="preview-filename">${file.name}</span>
+        <span class="preview-change" onclick="document.getElementById('fileInput').click();event.stopPropagation()">Change</span>
+      </div>`;
+
+    document.getElementById('extractBtn').disabled = false;
+    document.getElementById('eventsSection').style.display = 'none';
+    document.getElementById('debugArea').style.display = 'none';
+    document.getElementById('hint').style.display = 'none';
+    setStatus('');
+    allEvents = [];
+  };
+  reader.readAsDataURL(file);
+}
+
+function setStatus(msg, type) {
+  const bar = document.getElementById('statusBar');
+  if (!msg) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.className = 'status-bar ' + (type || 'info');
+  document.getElementById('statusIcon').textContent = type === 'success' ? '✓' : type === 'error' ? '✕' : '…';
+  document.getElementById('statusText').textContent = msg;
+}
+
+async function extractEvents() {
+  const key = (document.getElementById('apiKey').value || localStorage.getItem('anthropic_key') || '').trim();
+  if (!key) { setStatus('Add your API key first (tap ⚙️)', 'error'); showSettings(); return; }
+  if (!imageData) { setStatus('Pick a screenshot first', 'error'); return; }
+
+  const btn = document.getElementById('extractBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Extracting…';
+  setStatus('Reading your schedule…', 'info');
+  document.getElementById('eventsSection').style.display = 'none';
+  document.getElementById('debugArea').style.display = 'none';
+  allEvents = [];
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: imageData.mediaType, data: imageData.base64 } },
+            { type: 'text', text: `This screenshot contains a schedule or calendar table. Extract every event row you can see.
+
+Return ONLY a JSON array starting with [ and ending with ]. Each object must have:
+- "title": event name or description
+- "date": YYYY-MM-DD (use 2026 if year not visible)
+- "startTime": HH:MM in 24h (omit if not shown)
+- "endTime": HH:MM in 24h (omit if not shown)
+- "location": venue or room (omit if not shown)
+- "description": extra notes (omit if none)
+
+No markdown, no explanation, just the JSON array.` }
+          ]
+        }]
+      })
+    });
+
+    if (!res.ok) { const t = await res.text(); throw new Error(`API error ${res.status}: ${t}`); }
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+
+    const raw = (data.content || []).map(b => b.text || '').join('');
+    document.getElementById('debugBox').textContent = raw;
+    document.getElementById('debugArea').style.display = 'block';
+
+    const parsed = extractJSON(raw);
+    if (!parsed) { throw new Error('Could not parse response as JSON. See debug below.'); }
+
+    allEvents = parsed;
+    renderEvents();
+
+    if (allEvents.length === 0) {
+      setStatus('No events found — check the debug output', 'error');
+    } else {
+      setStatus(`Found ${allEvents.length} event${allEvents.length !== 1 ? 's' : ''}`, 'success');
+    }
+  } catch (err) {
+    setStatus(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Extract events';
+  }
+}
+
+function extractJSON(text) {
+  try { const r = JSON.parse(text.trim()); if (Array.isArray(r)) return r; } catch {}
+  const stripped = text.replace(/```(?:json)?/g, '').trim();
+  try { const r = JSON.parse(stripped); if (Array.isArray(r)) return r; } catch {}
+  const m = text.match(/\[[\s\S]*\]/);
+  if (m) { try { const r = JSON.parse(m[0]); if (Array.isArray(r)) return r; } catch {} }
+  return null;
+}
+
+function formatDate(d) {
+  try { const [y,m,day] = d.split('-'); return `${parseInt(day)} ${MONTHS[parseInt(m)-1]} ${y}`; }
+  catch { return d; }
+}
+
+function renderEvents() {
+  const list = document.getElementById('eventsList');
+  list.innerHTML = '';
+  document.getElementById('eventsSection').style.display = allEvents.length ? 'block' : 'none';
+  document.getElementById('eventsCount').textContent = allEvents.length;
+
+  allEvents.forEach((ev, i) => {
+    const meta = [
+      ev.date ? formatDate(ev.date) : null,
+      ev.startTime ? (ev.startTime + (ev.endTime ? '–' + ev.endTime : '')) : null,
+      ev.location
+    ].filter(Boolean).join(' · ');
+
+    const div = document.createElement('div');
+    div.className = 'event-item';
+    div.innerHTML = `
+      <div class="event-dot"></div>
+      <div class="event-body">
+        <div class="event-title">${esc(ev.title || 'Untitled')}</div>
+        <div class="event-meta">${esc(meta)}${ev.description ? '<br>'+esc(ev.description) : ''}</div>
+      </div>
+      <button class="event-delete" onclick="removeEvent(${i})">×</button>`;
+    list.appendChild(div);
+  });
+}
+
+function removeEvent(i) {
+  allEvents.splice(i, 1);
+  renderEvents();
+  if (allEvents.length === 0) {
+    document.getElementById('eventsSection').style.display = 'none';
+    setStatus('All events removed', 'info');
+  } else {
+    document.getElementById('eventsCount').textContent = allEvents.length;
+  }
+}
+
+function toICSDate(date, time) {
+  const [y,m,d] = date.split('-');
+  if (!time) return `${y}${m}${d}`;
+  const [h,min] = time.split(':');
+  return `${y}${m}${d}T${h.padStart(2,'0')}${min.padStart(2,'0')}00`;
+}
+
+function downloadICS() {
+  if (!allEvents.length) return;
+  const lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//CalImport//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH'];
+  allEvents.forEach(ev => {
+    const uid = Math.random().toString(36).slice(2) + '@calimport';
+    const isAllDay = !ev.startTime;
+    const dtstart = toICSDate(ev.date, ev.startTime || null);
+    const dtend = ev.endTime ? toICSDate(ev.date, ev.endTime) : dtstart;
+    lines.push('BEGIN:VEVENT','UID:'+uid,'SUMMARY:'+(ev.title||'Event'));
+    if (isAllDay) { lines.push('DTSTART;VALUE=DATE:'+dtstart,'DTEND;VALUE=DATE:'+dtend); }
+    else { lines.push('DTSTART:'+dtstart,'DTEND:'+dtend); }
+    if (ev.location) lines.push('LOCATION:'+ev.location);
+    if (ev.description) lines.push('DESCRIPTION:'+ev.description.replace(/\n/g,'\\n'));
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  const b64 = btoa(unescape(encodeURIComponent(lines.join('\r\n'))));
+  const a = document.createElement('a');
+  a.href = 'data:text/calendar;base64,' + b64;
+  a.download = 'schedule.ics';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function toggleDebug() {
+  showingDebug = !showingDebug;
+  document.getElementById('debugBox').style.display = showingDebug ? 'block' : 'none';
+  document.querySelector('.debug-toggle').textContent = showingDebug ? 'Hide raw response' : 'Show raw API response';
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>
